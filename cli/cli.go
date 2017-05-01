@@ -7,10 +7,12 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
 	data "github.com/tendermint/go-wire/data"
 	"github.com/tendermint/go-wire/data/base58"
+	cmn "github.com/tendermint/tmlibs/common"
 )
 
 const (
@@ -25,7 +27,7 @@ func PrepareMainCmd(cmd *cobra.Command, envPrefix, defautRoot string) func() {
 	cmd.PersistentFlags().StringP(EncodingFlag, "e", "hex", "Binary encoding (hex|b64|btc)")
 	cmd.PersistentFlags().StringP(OutputFlag, "o", "text", "Output format (text|json)")
 	cmd.PersistentPreRunE = multiE(bindFlags, setEncoding, validateOutput, cmd.PersistentPreRunE)
-	return func() { execute(cmd) }
+	return func() { Execute(cmd) }
 }
 
 // initEnv sets to use ENV variables if set.
@@ -39,8 +41,21 @@ func initEnv(prefix string) {
 // Execute calls cmd.Execute and exits if there is an error.
 func Execute(cmd *cobra.Command) {
 	if err := cmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(-1)
+		cmn.Exit(err)
+	}
+}
+
+//Add debugging flag and execute the root command
+func ExecuteWithDebug(RootCmd *cobra.Command) {
+
+	var debug bool
+	RootCmd.SilenceUsage = true
+	RootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "enables stack trace error messages")
+
+	//note that Execute() prints the error if encountered, so no need to reprint the error,
+	//  only if we want the full stack trace
+	if err := RootCmd.Execute(); err != nil && debug {
+		cmn.Exit(fmt.Sprintf("%+v\n", err))
 	}
 }
 
@@ -108,4 +123,70 @@ func validateOutput(cmd *cobra.Command, args []string) error {
 		return errors.Errorf("Unsupported output format: %s", output)
 	}
 	return nil
+}
+
+/////////////////////////////
+// Quick Flag Register
+////////////////////////////
+
+//Registering flags can be quickly achieved through using the utility functions
+//RegisterFlags, and RegisterPersistentFlags. Ex:
+//	flags := []Flag2Register{
+//		{&myStringFlag, "mystringflag", "foobar", "description of what this flag does"},
+//		{&myBoolFlag, "myboolflag", false, "description of what this flag does"},
+//		{&myInt64Flag, "myintflag", 333, "description of what this flag does"},
+//	}
+//	RegisterFlags(MyCobraCmd, flags)
+type Flag2Register struct {
+	Pointer interface{}
+	Use     string
+	Value   interface{}
+	Desc    string
+}
+
+//register flag utils
+func RegisterFlags(c *cobra.Command, flags []Flag2Register) {
+	registerFlags(c, flags, false)
+}
+
+func RegisterPersistentFlags(c *cobra.Command, flags []Flag2Register) {
+	registerFlags(c, flags, true)
+}
+
+func registerFlags(c *cobra.Command, flags []Flag2Register, persistent bool) {
+
+	var flagset *pflag.FlagSet
+	if persistent {
+		flagset = c.PersistentFlags()
+	} else {
+		flagset = c.Flags()
+	}
+
+	for _, f := range flags {
+
+		ok := false
+
+		switch f.Value.(type) {
+		case string:
+			if _, ok = f.Pointer.(*string); ok {
+				flagset.StringVar(f.Pointer.(*string), f.Use, f.Value.(string), f.Desc)
+			}
+		case int:
+			if _, ok = f.Pointer.(*int); ok {
+				flagset.IntVar(f.Pointer.(*int), f.Use, f.Value.(int), f.Desc)
+			}
+		case uint64:
+			if _, ok = f.Pointer.(*uint64); ok {
+				flagset.Uint64Var(f.Pointer.(*uint64), f.Use, f.Value.(uint64), f.Desc)
+			}
+		case bool:
+			if _, ok = f.Pointer.(*bool); ok {
+				flagset.BoolVar(f.Pointer.(*bool), f.Use, f.Value.(bool), f.Desc)
+			}
+		}
+
+		if !ok {
+			panic("improper use of RegisterFlags")
+		}
+	}
 }
