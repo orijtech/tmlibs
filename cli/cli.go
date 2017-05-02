@@ -41,7 +41,7 @@ func initEnv(prefix string) {
 // Execute calls cmd.Execute and exits if there is an error.
 func Execute(cmd *cobra.Command) {
 	if err := cmd.Execute(); err != nil {
-		cmn.Exit(err)
+		cmn.Exit(err.Error())
 	}
 }
 
