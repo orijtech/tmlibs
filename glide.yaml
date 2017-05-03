@@ -16,6 +16,8 @@ import:
   subpackages:
   - ripemd160
 - package: github.com/go-logfmt/logfmt
+- package: github.com/spf13/cobra
+- package: github.com/spf13/viper
 testImport:
 - package: github.com/stretchr/testify
   subpackages:
