@@ -24,8 +24,8 @@ import:
 - package: golang.org/x/crypto
   subpackages:
   - ripemd160
-- package: github.com/go-logfmt/logfmt
 testImport:
 - package: github.com/stretchr/testify
   subpackages:
   - assert
+  - require
