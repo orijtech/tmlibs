@@ -53,8 +53,10 @@ func (db *MemDB) DeleteSync(key []byte) {
 
 func (db *MemDB) Close() {
 	db.mtx.Lock()
-	defer db.mtx.Unlock()
-	db = nil
+	for k := range db.db {
+		delete(db.db, k)
+	}
+	db.mtx.Unlock()
 }
 
 func (db *MemDB) Print() {
